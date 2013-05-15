@@ -1,0 +1,4 @@
+<RCC>
+    <qresource prefix="speech_recognize">
+    </qresource>
+</RCC>
