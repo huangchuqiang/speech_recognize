@@ -30,7 +30,6 @@ protected:
 private:
 	Ui::speech_recognizeClass ui;
 	QLabel label;
-	bool isRecognize;
 
 	CComPtr<ISpRecognizer> m_pRecognizer;
 	CComPtr<ISpRecoContext> m_pRecoCtxt;

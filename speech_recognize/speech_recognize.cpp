@@ -1,6 +1,7 @@
 #include "speech_recognize.h"
 #include <QtGlobal>
-#include <QPushButton>
+#include <QString>
+#include <string>
 #include <QDebug>
 
 
@@ -13,13 +14,13 @@
 speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
 	: QMainWindow(parent, flags), label(this)
 {
+	connect(this, SIGNAL(REG()), this, SLOT(doSomeThing()));
 	ui.setupUi(this);
-	isRecognize = true;
 	//初始化COM口
 //	::CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
 	HRESULT hr = ::CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
 	Q_ASSERT(SUCCEEDED(hr));
-	label.setText(QString::fromUtf16(L"程序正启动"));
+	label.setText(tr("程序正启动"));
 	//初始化语音识别对象
 
 	//m_pRecognizer初始化
@@ -61,44 +62,47 @@ speech_recognize::~speech_recognize()
 
 void speech_recognize::doSomeThing()
 {
-	static int i =1;
 	USES_CONVERSION;
 	CSpEvent event;
+
 	HRESULT hr = S_OK;
-	CComPtr<ISpRecoResult> cpResult;
-	label.setText(QString::fromUtf16(L"正在识别"));
-	label.setText(label.text() + QString(i));
-	i = i + 1;
-
-	while (SUCCEEDED(hr) &&
-		SUCCEEDED(hr = event.GetFrom(m_pRecoCtxt)) &&
-		hr == S_OK)
+	if(m_pRecoCtxt)
 	{
-		hr = m_pRecoCtxt->WaitForNotifyEvent(INFINITE);
+		while( S_OK==event.GetFrom(m_pRecoCtxt) )//等待创建语言主接口结束
+		{
+			switch(event.eEventId)
+			{
+			case SPEI_FALSE_RECOGNITION: //错误识别
+				break;
+
+			case SPEI_HYPOTHESIS: //假识别
+			case SPEI_RECOGNITION:  //正确识别
+				{
+					CComPtr <ISpRecoResult> cpResult;
+					CSpDynamicString   dstrText;
+
+					cpResult = event.RecoResult();
+					cpResult->GetText(SP_GETWHOLEPHRASE,SP_GETWHOLEPHRASE,TRUE,&dstrText,NULL);//获取识别字
+					std::string str(W2A(dstrText));
+					label.setText(tr(str.data()));
+					cpResult.Release();
+
+				}
+				break;
+
+			default : 
+				break;
+			}
+		}
 	}
-	
-
-	cpResult = event.RecoResult();
-	m_pCmdGram->SetDictationState(SPRS_INACTIVE);
-	CSpDynamicString dstrText;
-
-	if (SUCCEEDED(cpResult->GetText(SP_GETWHOLEPHRASE, SP_GETWHOLEPHRASE, 
-		TRUE, &dstrText, NULL)))
-	{
-		label.setText(QString::fromUtf16((const ushort*)(W2A(dstrText))));
-	}
-
-	m_pCmdGram->SetDictationState( SPRS_ACTIVE );
 }
 
 bool speech_recognize::winEvent(MSG *message, long *result)
 {
-	if(message->message == WM_RECORD_INFO && isRecognize)
+	if(message->message == WM_RECORD_INFO)
 	{
 		qDebug()<<"OK";
-		isRecognize = false;
 		emit REG();
-		isRecognize = true;
 		return true;
 	}
 	else
