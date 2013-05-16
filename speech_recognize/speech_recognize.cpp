@@ -12,7 +12,7 @@
 #define WM_RECORD_INFO WM_USER+100
 
 speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
-	: QMainWindow(parent, flags), label(this)
+	: QMainWindow(parent, flags), isConfig(true)
 {
 	connect(this, SIGNAL(REG()), this, SLOT(doSomeThing()));
 	ui.setupUi(this);
@@ -20,9 +20,8 @@ speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
 //	::CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
 	HRESULT hr = ::CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
 	Q_ASSERT(SUCCEEDED(hr));
-	label.setText(tr("程序正启动"));
-	//初始化语音识别对象
 
+	//初始化语音识别对象
 	//m_pRecognizer初始化
 	hr = m_pRecognizer.CoCreateInstance(CLSID_SpInprocRecognizer);//独享
 	Q_ASSERT(SUCCEEDED(hr));
@@ -34,6 +33,9 @@ speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
 	//m_pRecoCtxt初始化
 //	HRESULT hr = m_pRecognizer.CoCreateInstance(CLSID_SpSharedRecognizer);
 	hr = m_pRecognizer->CreateRecoContext(&m_pRecoCtxt);
+	Q_ASSERT(SUCCEEDED(hr));
+
+	hr = m_pRecoCtxt->GetVoice(&m_pVoice);
 	Q_ASSERT(SUCCEEDED(hr));
 	hr = m_pRecoCtxt->SetNotifyWindowMessage((HWND)this->winId(), WM_RECORD_INFO, 0, 0);
 //	hr = m_pRecoCtxt->SetNotifyCallbackFunction(doSomeThing, 0, 0);
@@ -52,6 +54,11 @@ speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
 	Q_ASSERT(SUCCEEDED(hr));
 	hr = m_pCmdGram->SetDictationState(SPRS_ACTIVE);
 	Q_ASSERT(SUCCEEDED(hr));
+
+	m_pVoice->Speak(L"欢迎使用简单语音识别软件", SPF_ASYNC, NULL);
+	this->ui.lab_cmd->setText(tr("请说出你的命令"));
+	this->ui.lab_config->setText(tr(""));
+	this->ui.statusBar->addWidget(new QLabel(tr("正在聆听")));
 
 }
 
@@ -84,7 +91,33 @@ void speech_recognize::doSomeThing()
 					cpResult = event.RecoResult();
 					cpResult->GetText(SP_GETWHOLEPHRASE,SP_GETWHOLEPHRASE,TRUE,&dstrText,NULL);//获取识别字
 					std::string str(W2A(dstrText));
-					label.setText(tr(str.data()));
+					this->ui.lab_cmd->setText(tr("你说的命令是：\t") + tr(str.data()));
+					if (isConfig)
+					{
+						this->ui.lab_config->setText(tr("\t\t说\"确定\"执行命令，说\"取消\"取消命令"));
+						isConfig = false;
+					}
+					else
+					{
+						isConfig = true;
+						if (str == std::string("确定"))
+							this->ui.lab_config->setText(tr("\t\t命令正在被执行......"));
+						else
+						{
+							if (str == std::string("取消"))
+								this->ui.lab_config->setText(tr("\t\t命令被取消......"));
+							else
+							{
+								this->ui.lab_cmd->setText(tr("命令错误..."));
+								this->ui.lab_config->setText(tr("\t\t说\"确定\"执行命令，说\"取消\"取消命令"));
+								isConfig = false;
+							}
+						}
+
+						
+					}
+					
+					
 					cpResult.Release();
 
 				}

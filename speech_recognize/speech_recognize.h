@@ -29,12 +29,13 @@ protected:
 	bool winEvent(MSG *message, long *result);
 private:
 	Ui::speech_recognizeClass ui;
-	QLabel label;
+	bool isConfig;
 
 	CComPtr<ISpRecognizer> m_pRecognizer;
 	CComPtr<ISpRecoContext> m_pRecoCtxt;
 	CComPtr<ISpRecoGrammar> m_pCmdGram;
 	CComPtr<ISpAudio> m_pAudio;
+	CComPtr<ISpVoice> m_pVoice;
 
 };
 
