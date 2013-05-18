@@ -1,0 +1,73 @@
+﻿<?xml version="1.0"?>
+<GRAMMAR LANGID = "804">
+	<DEFINE>
+		<ID NAME="CMD_Begin" VAL="1"/>
+		<ID NAME="CMD_End" VAL="2"/>
+		<ID NAME="CMD_Single" VAL="10"/>
+		<ID NAME="CMDClose" VAL="11"/>
+		<ID NAME="CMDShutdown" VAL="12"/>
+		<ID NAME="CMDShowdesktop" VAL="13"/>
+		<ID NAME="CMD_Group" VAL="20"/>
+		<ID NAME="CMDOpenComputer" VAL="21"/>
+		<ID NAME="CMDOpenDesktop" VAL="22"/>
+		<ID NAME="CMD_Options" VAL="30"/>
+		<ID NAME="CMDOne" VAL="31"/>
+		<ID NAME="CMDTwo" VAL="32"/>
+		<ID NAME="CMDThree" VAL="33"/>
+		<ID NAME="CMDPgup" VAL="34"/>
+		<ID NAME="CMDPgdn" VAL="35"/>
+		<ID NAME="CMDBack" VAL="36"/>
+		<ID NAME="CMD_Config" VAL="40"/>
+		<ID NAME="CMDYes" VAL="41"/>
+		<ID NAME="CMDNo" VAL="42"/>
+	</DEFINE>
+	<RULE NAME ="cmdbegin" ID = "CMD_Begin" TOPLEVEL = "ACTIVE">
+	<L>
+		<P>开始识别</P>
+		<P>开始聆听</P>
+	</L>
+	</RULE>
+	<RULE NAME ="cmdend" ID = "CMD_End" TOPLEVEL = "INACTIVE">
+	<L>
+		<P>结束识别</P>
+		<P>结束聆听</P>
+	</L>
+	</RULE>
+	<RULE ID="CMD_Single" TOPLEVEL="INACTIVE">
+	<P>
+		<L PROPID="CMD_Single" >
+			<P  VAL="CMDClose">关闭程序</P>
+			<P  VAL="CMDShutdown">关机</P>
+			<P  VAL="CMDShowdesktop">显示桌面</P>
+		</L>
+    </P>
+    </RULE>
+	<RULE ID="CMD_Group" TOPLEVEL="INACTIVE">
+	<P>
+		<L PROPID="CMD_Group" >
+			<P  VAL="CMDOpenComputer">打开计算机</P>
+			<P  VAL="CMDOpenDesktop">打开桌面</P>
+		</L>
+    </P>
+    </RULE>
+	<RULE ID="CMD_Options" TOPLEVEL="INACTIVE">
+	<P>
+		<L PROPID="CMD_Options" >
+			<P  VAL="CMDOne">1</P>
+			<P  VAL="CMDTwo">2</P>
+			<P  VAL="CMDThree">3</P>
+			<P  VAL="CMDPgup">上一页</P>
+			<P  VAL="CMDPgdn">下一页</P>
+			<P  VAL="CMDBack">返回上层</P>
+		</L>
+    </P>
+    </RULE>
+		<RULE ID="CMD_Config" TOPLEVEL="INACTIVE">
+	<P>
+		<L PROPID="CMD_Config" >
+			<P  VAL="CMDYes">确定</P>
+			<P  VAL="CMDNo">取消</P>
+		</L>
+    </P>
+    </RULE>	
+</GRAMMAR>

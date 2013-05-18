@@ -5,6 +5,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QPainter>
+#include <QDateTime>
 
 #define WM_RECORD_INFO WM_USER+100
 
@@ -14,7 +15,7 @@ speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
 	connect(this, SIGNAL(REG()), this, SLOT(recordEvent()));
 	ui.setupUi(this);
 
-	this->setWindowTitle(tr("简单语音识别"));
+	this->setWindowTitle(tr("简单语音识别软件"));
 	this->setFixedWidth(this->width());
 	this->setFixedHeight(this->height());
 
@@ -22,7 +23,7 @@ speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
 	m_SREngine.LoadCmdFromFile("CmdCtrl.xml");
 	m_SREngine.SetRuleState(NULL,NULL,TRUE);
 
-	m_SREngine.m_pVoice->Speak(L"简单语音识别软件", SPF_ASYNC, NULL);
+	m_SREngine.m_pVoice->Speak(L"这是一个简单语音识别软件", SPF_ASYNC, NULL);
 
 	initUI();
 	this->ui.statusBar->addWidget(&m_toolLabel);
@@ -35,6 +36,12 @@ speech_recognize::~speech_recognize()
 
 void speech_recognize::initUI()
 {
+	QPalette pe;
+	pe.setColor(QPalette::WindowText,Qt::blue);
+	this->ui.lab_cmd->setPalette(pe);
+	this->ui.lab_config->setPalette(pe);
+	pe.setColor(QPalette::WindowText,Qt::red);
+	m_toolLabel.setPalette(pe);
 	this->ui.lab_title->setText(tr("欢迎使用简单语音识别软件"));
 	this->ui.lab_cmd->setText(tr("说“开始识别”进入聆听模式"));
 	this->ui.lab_config->setText(tr(""));
@@ -43,7 +50,7 @@ void speech_recognize::initUI()
 	this->ui.lab_2->setText(tr(""));
 	this->ui.lab_3->setText(tr(""));
 	this->ui.lab_next->setText(tr(""));
-	m_toolLabel.setText(tr("休眠模式"));
+	m_toolLabel.setText(tr("当前模式：休眠模式"));
 }
 
 
@@ -136,7 +143,7 @@ void speech_recognize::cmdBegin()
 
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Config, SPRS_INACTIVE);
-	m_toolLabel.setText(tr("聆听模式"));
+	m_toolLabel.setText(tr("当前模式：聆听模式"));
 	this->ui.lab_cmd->setText(tr("请说出你的命令"));
 	this->ui.lab_config->setText(tr(""));
 }
@@ -246,7 +253,6 @@ void speech_recognize::cmdOptios(SPPHRASE *pElements, std::string dstrText)
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Single, SPRS_INACTIVE);
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Group, SPRS_INACTIVE);
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Config, SPRS_ACTIVE);
-//	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
 
 	this->ui.lab_cmd->setText(tr("当前的命令是：") + tr(dstrText.data()));
 	this->ui.lab_config->setText(tr("\t“确定”执行命令，“取消”不执行命令"));
@@ -311,8 +317,8 @@ void speech_recognize::paintEvent( QPaintEvent *event)
 {
 	QPainter painter(this);
 	QImage image("plant.jpg");
+	painter.setPen(Qt::red);
 	painter.drawImage(QRect(0, 0, this->width(), this->height()), image);
-	painter
 }
 
 
