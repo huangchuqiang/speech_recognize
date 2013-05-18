@@ -1,81 +1,61 @@
 #include "speech_recognize.h"
 #include <QtGlobal>
-#include <QString>
-#include <string>
-#include <QDebug>
-
-
-
-#pragma comment(lib,"ole32.lib")   //CoInitialize CoCreateInstance需要调用ole32.dll
-#pragma comment(lib,"sapi.lib")    //sapi.lib在SDK的lib目录,必需正确配置
+#include <QFile>
+#include <QProcess>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QPainter>
 
 #define WM_RECORD_INFO WM_USER+100
 
 speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
-	: QMainWindow(parent, flags), isConfig(true)
+	: QMainWindow(parent, flags)
 {
-	connect(this, SIGNAL(REG()), this, SLOT(doSomeThing()));
+	connect(this, SIGNAL(REG()), this, SLOT(recordEvent()));
 	ui.setupUi(this);
-	//初始化COM口
-//	::CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
-	HRESULT hr = ::CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
-	Q_ASSERT(SUCCEEDED(hr));
 
-	//初始化语音识别对象
-	//m_pRecognizer初始化
-	hr = m_pRecognizer.CoCreateInstance(CLSID_SpInprocRecognizer);//独享
-	Q_ASSERT(SUCCEEDED(hr));
-	//m_pAudio初始化
-	hr = SpCreateDefaultObjectFromCategoryId(SPCAT_AUDIOIN, &m_pAudio);//建立默认的音频输入对象
-	Q_ASSERT(SUCCEEDED(hr));
-	hr = m_pRecognizer->SetInput(m_pAudio,TRUE);//设置识别引擎输入源
-	Q_ASSERT(SUCCEEDED(hr));
-	//m_pRecoCtxt初始化
-//	HRESULT hr = m_pRecognizer.CoCreateInstance(CLSID_SpSharedRecognizer);
-	hr = m_pRecognizer->CreateRecoContext(&m_pRecoCtxt);
-	Q_ASSERT(SUCCEEDED(hr));
+	this->setWindowTitle(tr("简单语音识别"));
+	this->setFixedWidth(this->width());
+	this->setFixedHeight(this->height());
 
-	hr = m_pRecoCtxt->GetVoice(&m_pVoice);
-	Q_ASSERT(SUCCEEDED(hr));
-	hr = m_pRecoCtxt->SetNotifyWindowMessage((HWND)this->winId(), WM_RECORD_INFO, 0, 0);
-//	hr = m_pRecoCtxt->SetNotifyCallbackFunction(doSomeThing, 0, 0);
-	Q_ASSERT(SUCCEEDED(hr));
-	const ULONGLONG ullInterest = SPFEI(SPEI_SOUND_START)|SPFEI(SPEI_SOUND_END)|SPFEI(SPEI_RECOGNITION);
-	hr = m_pRecoCtxt->SetInterest(ullInterest,ullInterest);
-	Q_ASSERT(SUCCEEDED(hr));
+	m_SREngine.InitializeSapi((HWND)this->winId(), WM_RECORD_INFO);
+	m_SREngine.LoadCmdFromFile("CmdCtrl.xml");
+	m_SREngine.SetRuleState(NULL,NULL,TRUE);
 
-	hr = m_pRecognizer->SetRecoState(SPRST_ACTIVE);
-	Q_ASSERT(SUCCEEDED(hr));
+	m_SREngine.m_pVoice->Speak(L"简单语音识别软件", SPF_ASYNC, NULL);
 
-	//m_pCmdGram初始化
-	hr = m_pRecoCtxt->CreateGrammar(0, &m_pCmdGram);
-	if(SUCCEEDED(hr))
-		hr = m_pCmdGram->LoadDictation(NULL, SPLO_STATIC);
-	Q_ASSERT(SUCCEEDED(hr));
-	hr = m_pCmdGram->SetDictationState(SPRS_ACTIVE);
-	Q_ASSERT(SUCCEEDED(hr));
-
-	m_pVoice->Speak(L"欢迎使用简单语音识别软件", SPF_ASYNC, NULL);
-	this->ui.lab_cmd->setText(tr("请说出你的命令"));
-	this->ui.lab_config->setText(tr(""));
-	this->ui.statusBar->addWidget(new QLabel(tr("正在聆听")));
-
+	initUI();
+	this->ui.statusBar->addWidget(&m_toolLabel);
+	cmdBegin();
 }
 
 speech_recognize::~speech_recognize()
 {
-	::CoUninitialize();
 }
 
-void speech_recognize::doSomeThing()
+void speech_recognize::initUI()
+{
+	this->ui.lab_title->setText(tr("欢迎使用简单语音识别软件"));
+	this->ui.lab_cmd->setText(tr("说“开始识别”进入聆听模式"));
+	this->ui.lab_config->setText(tr(""));
+	this->ui.lab_caption->setText(tr(""));
+	this->ui.lab_1->setText(tr(""));
+	this->ui.lab_2->setText(tr(""));
+	this->ui.lab_3->setText(tr(""));
+	this->ui.lab_next->setText(tr(""));
+	m_toolLabel.setText(tr("休眠模式"));
+}
+
+
+void speech_recognize::recordEvent()
 {
 	USES_CONVERSION;
 	CSpEvent event;
 
 	HRESULT hr = S_OK;
-	if(m_pRecoCtxt)
+	if(m_SREngine.m_pRecoCtxt)
 	{
-		while( S_OK==event.GetFrom(m_pRecoCtxt) )//等待创建语言主接口结束
+		while( S_OK==event.GetFrom(m_SREngine.m_pRecoCtxt) )//等待创建语言主接口结束
 		{
 			switch(event.eEventId)
 			{
@@ -85,41 +65,14 @@ void speech_recognize::doSomeThing()
 			case SPEI_HYPOTHESIS: //假识别
 			case SPEI_RECOGNITION:  //正确识别
 				{
-					CComPtr <ISpRecoResult> cpResult;
-					CSpDynamicString   dstrText;
-
-					cpResult = event.RecoResult();
-					cpResult->GetText(SP_GETWHOLEPHRASE,SP_GETWHOLEPHRASE,TRUE,&dstrText,NULL);//获取识别字
-					std::string str(W2A(dstrText));
-					this->ui.lab_cmd->setText(tr("你说的命令是：\t") + tr(str.data()));
-					if (isConfig)
+					CSpDynamicString dstrText;
+					if (SUCCEEDED(event.RecoResult()->GetText(SP_GETWHOLEPHRASE, SP_GETWHOLEPHRASE, 
+						TRUE, &dstrText, NULL)))
 					{
-						this->ui.lab_config->setText(tr("\t\t说\"确定\"执行命令，说\"取消\"取消命令"));
-						isConfig = false;
-					}
-					else
-					{
-						isConfig = true;
-						if (str == std::string("确定"))
-							this->ui.lab_config->setText(tr("\t\t命令正在被执行......"));
-						else
-						{
-							if (str == std::string("取消"))
-								this->ui.lab_config->setText(tr("\t\t命令被取消......"));
-							else
-							{
-								this->ui.lab_cmd->setText(tr("命令错误..."));
-								this->ui.lab_config->setText(tr("\t\t说\"确定\"执行命令，说\"取消\"取消命令"));
-								isConfig = false;
-							}
-						}
-
-						
+						m_SREngine.m_pVoice->Speak(dstrText, SPF_ASYNC, NULL);
+						executeCommand(event.RecoResult(), W2A(dstrText));
 					}
 					
-					
-					cpResult.Release();
-
 				}
 				break;
 
@@ -128,6 +81,37 @@ void speech_recognize::doSomeThing()
 			}
 		}
 	}
+}
+void speech_recognize::executeCommand( ISpPhrase *pPhrase, std::string dstrText)
+{
+	SPPHRASE *pElements;
+	// Get the phrase elements, one of which is the rule id we specified in
+	// the grammar.  Switch on it to figure out which command was recognized.
+	if (SUCCEEDED(pPhrase->GetPhrase(&pElements)))
+	{        
+		switch ( pElements->Rule.ulId )
+		{
+		case CMD_Begin:
+			cmdBegin();
+			break;
+		case CMD_End:
+			cmdEnd();
+			break;
+		case CMD_Single:
+		case CMD_Group:
+			command(pElements, dstrText);
+			break;
+		case CMD_Options:
+			cmdOptios(pElements, dstrText);
+			break;
+		case CMD_Config:
+			cmdConfig(pElements);
+			break;
+		}
+		// Free the pElements memorySPRS_ACTIVElocated for us
+		::CoTaskMemFree(pElements);
+	}
+
 }
 
 bool speech_recognize::winEvent(MSG *message, long *result)
@@ -140,5 +124,196 @@ bool speech_recognize::winEvent(MSG *message, long *result)
 	}
 	else
 		return QMainWindow::winEvent(message, result);
-
 }
+
+void speech_recognize::cmdBegin()
+{
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Begin, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_End, SPRS_ACTIVE);
+
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Single, SPRS_ACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Group, SPRS_ACTIVE);
+
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Config, SPRS_INACTIVE);
+	m_toolLabel.setText(tr("聆听模式"));
+	this->ui.lab_cmd->setText(tr("请说出你的命令"));
+	this->ui.lab_config->setText(tr(""));
+}
+
+void speech_recognize::cmdEnd()
+{
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Begin, SPRS_ACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_End, SPRS_INACTIVE);
+
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Group, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Single, SPRS_INACTIVE);
+
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Config, SPRS_INACTIVE);
+	initUI();
+}
+
+void speech_recognize::command(SPPHRASE *pElements, std::string dstrText)
+{
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Group, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Single, SPRS_INACTIVE);
+
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Config, SPRS_ACTIVE);
+
+	this->ui.lab_cmd->setText(tr("当前的命令是：") + tr(dstrText.data()));
+	this->ui.lab_config->setText(tr("\t“确定”执行命令，“取消”不执行命令"));
+	m_cmdType = pElements->pProperties->vValue.ulVal;
+	m_cmdLine = QString(dstrText.data());
+}
+
+void speech_recognize::cmdConfig(SPPHRASE *pElements)
+{
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Single, SPRS_ACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Group, SPRS_ACTIVE);
+
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Config, SPRS_INACTIVE);
+
+	switch( pElements->pProperties->vValue.ulVal )
+	{
+	case CMDYes:
+		m_SREngine.m_pVoice->Speak(L"命令已执行", SPF_ASYNC, NULL);
+		this->ui.lab_cmd->setText(tr("请说出你的命令"));
+		this->ui.lab_config->setText(tr(""));
+		//TODO: 命令的入口
+		switch(m_cmdType)
+		{
+		case CMDClose:
+			//关闭程序
+			this->close();
+			break;
+		case CMDShutdown:
+			//system("shutdown -s -f"); //强制关机
+			system("shutdown -s");	//关机
+			break;
+		case CMDShowdesktop:
+			//显示桌面
+			system("%USERPROFILE%\\AppData\\Roaming\\Microsoft\\\"Internet Explorer\"\\\"Quick Launch\"\\\"shows desktop.lnk\"");
+			m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
+			break;
+		case CMDOpenDesktop:
+			m_cmdDir = QDir::home();
+			m_cmdDir.cd("desktop");
+			m_cmdLine = m_cmdDir.path();
+			m_index = 2;
+			addListText(m_cmdDir.entryList(), m_index);
+			break;
+		case CMDOne:
+			chooseNumber(this->ui.lab_1, 1);
+			break;
+		case CMDTwo:
+			chooseNumber(this->ui.lab_2, 2);
+			break;
+		case CMDThree:
+			chooseNumber(this->ui.lab_3, 3);
+			break;
+		case CMDPgup:
+			m_index -= 3;
+			m_index = m_index? m_index: 0;
+			addListText(m_cmdDir.entryList(), m_index);
+			break;
+		case CMDPgdn:
+			m_index += 3;
+			addListText(m_cmdDir.entryList(), m_index);
+			break;
+		case CMDBack:
+			m_cmdDir.cdUp();
+			m_index = 2;
+			addListText(m_cmdDir.entryList(), m_index);
+			break;
+		}
+		break;
+	case CMDNo:
+		{
+			m_SREngine.m_pVoice->Speak(L"命令已取消", SPF_ASYNC, NULL);
+			this->ui.lab_cmd->setText(tr("当前的命令是："));
+			this->ui.lab_config->setText(tr(""));
+		}
+		break;
+	}
+}
+
+void speech_recognize::cmdOptios(SPPHRASE *pElements, std::string dstrText)
+{
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Begin, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_End, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Single, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Group, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Config, SPRS_ACTIVE);
+//	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
+
+	this->ui.lab_cmd->setText(tr("当前的命令是：") + tr(dstrText.data()));
+	this->ui.lab_config->setText(tr("\t“确定”执行命令，“取消”不执行命令"));
+	m_cmdType = pElements->pProperties->vValue.ulVal;
+}
+
+
+void speech_recognize::addListText(const QStringList &list, int index)
+{
+	this->ui.lab_caption->setText(tr("用（1，2，3）来选择打开以下目录或文件,“返回上层”返回上层"));
+	this->ui.lab_next->setText(tr("“下一页”打开下一页，“结束命令”结束当前命令"));
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_ACTIVE);
+
+	int count = list.count();
+	if (index < count)
+	{
+		this->ui.lab_1->setText(tr("1\t") + QString::fromUtf16((const ushort*)dealString(list[index++]).data()));
+
+		if (index < count)
+		{
+			this->ui.lab_2->setText(tr("2\t") + QString::fromUtf16((const ushort*)dealString(list[index++]).data()));
+
+			if (index < count)
+			{
+				this->ui.lab_3->setText(tr("3\t") + QString::fromUtf16((const ushort*)dealString(list[index]).data()));
+			}
+		}
+	}	
+}
+void speech_recognize::chooseNumber(QLabel* label, int number)
+{
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_ACTIVE);
+	if (label->text() != "")
+	{
+		int index = m_index + number -1;
+		QFileInfo fileType = m_cmdDir.entryInfoList().at(index);
+		if (fileType.isDir())
+		{
+			m_cmdDir.cd(m_cmdDir.entryList().at(index));
+			m_index = 2;
+			addListText(m_cmdDir.entryList(), m_index);
+		}
+		else
+		{
+			if (fileType.isFile())
+			{
+				QFile file(m_cmdDir.filePath(m_cmdDir.entryList().at(index)));
+				QDesktopServices::openUrl ( QUrl::fromLocalFile(file.fileName()) );
+			}
+		}
+
+	}
+}
+
+QString speech_recognize::dealString(const QString &str)
+{
+	int index = str.lastIndexOf(".");
+	return QString(str.data(), index);
+}
+
+void speech_recognize::paintEvent( QPaintEvent *event)
+{
+	QPainter painter(this);
+	QImage image("plant.jpg");
+	painter.drawImage(QRect(0, 0, this->width(), this->height()), image);
+	painter
+}
+
+
+

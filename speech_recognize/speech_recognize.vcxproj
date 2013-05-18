@@ -91,6 +91,7 @@
     </ClCompile>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="speech_recognize.cpp" />
+    <ClCompile Include="SREngine.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="speech_recognize.h">
@@ -119,6 +120,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_speech_recognize.h" />
+    <ClInclude Include="SREngine.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="speech_recognize.qrc">
