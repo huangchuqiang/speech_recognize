@@ -69,7 +69,7 @@ private:
 	void cmdConfig(SPPHRASE *pElements);
 	void cmdOptios(SPPHRASE *pElements, std::string dstrText);
 
-	void addListText(const QStringList &list, const  int index);
+	void addListText(const QStringList &list, int &index);
 	void chooseNumber(QLabel* label, int number);
 	QString dealString(const QString &str);
 };

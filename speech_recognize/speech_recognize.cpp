@@ -221,18 +221,30 @@ void speech_recognize::cmdConfig(SPPHRASE *pElements)
 			chooseNumber(this->ui.lab_3, 3);
 			break;
 		case CMDPgup:
-			m_index -= 3;
-			m_index = m_index? m_index: 0;
+			m_index -= 6;
+			m_index = m_index > 2? m_index: 2;
 			addListText(m_cmdDir.entryList(), m_index);
 			break;
 		case CMDPgdn:
-			m_index += 3;
+			//m_index += 3;
 			addListText(m_cmdDir.entryList(), m_index);
 			break;
 		case CMDBack:
-			m_cmdDir.cdUp();
-			m_index = 2;
-			addListText(m_cmdDir.entryList(), m_index);
+			if(m_cmdDir.cdUp())
+			{
+				m_index = 2;
+				addListText(m_cmdDir.entryList(), m_index);
+			}
+			else
+			{
+				this->ui.lab_config->setText(tr(""));
+				this->ui.lab_caption->setText(tr(""));
+				this->ui.lab_1->setText(tr(""));
+				this->ui.lab_2->setText(tr(""));
+				this->ui.lab_3->setText(tr(""));
+				this->ui.lab_next->setText(tr(""));
+			}
+
 			break;
 		}
 		break;
@@ -260,15 +272,20 @@ void speech_recognize::cmdOptios(SPPHRASE *pElements, std::string dstrText)
 }
 
 
-void speech_recognize::addListText(const QStringList &list, int index)
+void speech_recognize::addListText(const QStringList &list, int &index)
 {
 	this->ui.lab_caption->setText(tr("用（1，2，3）来选择打开以下目录或文件,“返回上层”返回上层"));
 	this->ui.lab_next->setText(tr("“下一页”打开下一页，“结束命令”结束当前命令"));
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_ACTIVE);
 
+
 	int count = list.count();
 	if (index < count)
 	{
+		while(list[index].indexOf(".") == 0)
+		{
+			++index;
+		}
 		this->ui.lab_1->setText(tr("1\t") + QString::fromUtf16((const ushort*)dealString(list[index++]).data()));
 
 		if (index < count)
@@ -277,17 +294,17 @@ void speech_recognize::addListText(const QStringList &list, int index)
 
 			if (index < count)
 			{
-				this->ui.lab_3->setText(tr("3\t") + QString::fromUtf16((const ushort*)dealString(list[index]).data()));
+				this->ui.lab_3->setText(tr("3\t") + QString::fromUtf16((const ushort*)dealString(list[index++]).data()));
 			}
 		}
-	}	
+	}
 }
 void speech_recognize::chooseNumber(QLabel* label, int number)
 {
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_ACTIVE);
 	if (label->text() != "")
 	{
-		int index = m_index + number -1;
+		int index = m_index + number -4;
 		QFileInfo fileType = m_cmdDir.entryInfoList().at(index);
 		if (fileType.isDir())
 		{
@@ -310,6 +327,8 @@ void speech_recognize::chooseNumber(QLabel* label, int number)
 QString speech_recognize::dealString(const QString &str)
 {
 	int index = str.lastIndexOf(".");
+	if (index == -1)
+		return str;
 	return QString(str.data(), index);
 }
 
