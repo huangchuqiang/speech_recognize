@@ -166,7 +166,7 @@ void speech_recognize::command(SPPHRASE *pElements, std::string dstrText)
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Group, SPRS_INACTIVE);
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Single, SPRS_INACTIVE);
 
-	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
+	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_ACTIVE);
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Config, SPRS_ACTIVE);
 
 	this->ui.lab_cmd->setText(tr("当前的命令是：") + tr(dstrText.data()));
