@@ -49,7 +49,7 @@ bool  KSREngine::LoadCmdFromFile(QString  XMLFileName)
 
 	if(!m_pCmdGram) //没有规则的时候
 	{
-		hr = m_pRecoCtxt->CreateGrammar(0, &m_pCmdGram);//创建语音对象
+		hr = m_pRecoCtxt->CreateGrammar(0, &m_pCmdGram);//创建语法对象
 		if(FAILED(hr))
 		{
 			Q_ASSERT(!"Error create grammar");

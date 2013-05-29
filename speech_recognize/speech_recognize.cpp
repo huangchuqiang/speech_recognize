@@ -20,7 +20,7 @@ speech_recognize::speech_recognize(QWidget *parent, Qt::WFlags flags)
 	this->setFixedHeight(this->height());
 
 	m_SREngine.InitializeSapi((HWND)this->winId(), WM_RECORD_INFO);
-	m_SREngine.LoadCmdFromFile("CmdCtrl.xml");
+	m_SREngine.LoadCmdFromFile("Resources\\CmdCtrl.xml");
 	m_SREngine.SetRuleState(NULL,NULL,TRUE);
 
 	m_SREngine.m_pVoice->Speak(L"这是一个简单语音识别软件", SPF_ASYNC, NULL);
@@ -117,6 +117,7 @@ void speech_recognize::executeCommand( ISpPhrase *pPhrase, std::string dstrText)
 		}
 		// Free the pElements memorySPRS_ACTIVElocated for us
 		::CoTaskMemFree(pElements);
+		Sleep(1000); //延时1秒
 	}
 
 }
@@ -201,7 +202,16 @@ void speech_recognize::cmdConfig(SPPHRASE *pElements)
 			break;
 		case CMDShowdesktop:
 			//显示桌面
-			system("%USERPROFILE%\\AppData\\Roaming\\Microsoft\\\"Internet Explorer\"\\\"Quick Launch\"\\\"shows desktop.lnk\"");
+			{
+				m_cmdDir = QDir::home();
+				m_cmdDir.cd("AppData");
+				m_cmdDir.cd("Roaming");
+				m_cmdDir.cd("Microsoft");
+				m_cmdDir.cd("Internet Explorer");
+				m_cmdDir.cd("Quick Launch");
+				QFile file(m_cmdDir.filePath("shows desktop.lnk"));
+				QDesktopServices::openUrl ( QUrl::fromLocalFile(file.fileName()) );
+			}
 			m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_INACTIVE);
 			break;
 		case CMDOpenDesktop:
@@ -275,7 +285,7 @@ void speech_recognize::cmdOptios(SPPHRASE *pElements, std::string dstrText)
 void speech_recognize::addListText(const QStringList &list, int &index)
 {
 	this->ui.lab_caption->setText(tr("用（1，2，3）来选择打开以下目录或文件,“返回上层”返回上层"));
-	this->ui.lab_next->setText(tr("“下一页”打开下一页，“结束命令”结束当前命令"));
+	this->ui.lab_next->setText(tr("“下一页”打开下一页，“上一页”打开上一页"));
 	m_SREngine.m_pCmdGram->SetRuleIdState(CMD_Options, SPRS_ACTIVE);
 
 
@@ -335,7 +345,7 @@ QString speech_recognize::dealString(const QString &str)
 void speech_recognize::paintEvent( QPaintEvent *event)
 {
 	QPainter painter(this);
-	QImage image("plant.jpg");
+	QImage image("Resources\\plant.jpg");
 	painter.setPen(Qt::red);
 	painter.drawImage(QRect(0, 0, this->width(), this->height()), image);
 }
